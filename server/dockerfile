@@ -1,0 +1,33 @@
+FROM golang:alpine3.21 as builder
+
+WORKDIR /app
+
+RUN apk update && apk add --no-cache gcc g++ git openssh-client
+
+COPY . .
+
+RUN CGO_ENABLED=1 go install github.com/mattn/go-sqlite3 
+
+RUN go mod tidy
+
+RUN go build -tags netgo -a -v main.go
+
+#------------
+
+FROM alpine:3.21.0
+
+WORKDIR /app
+
+RUN addgroup -S go && adduser -S go -G go
+
+RUN chown go ./
+
+USER go
+
+RUN touch dev.db
+
+COPY --chown=go --from=builder /app/main ./main
+
+EXPOSE 9000
+
+ENTRYPOINT ["./main"]
